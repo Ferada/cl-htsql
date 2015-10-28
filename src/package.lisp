@@ -29,4 +29,15 @@
 (in-package #:cl-user)
 
 (defpackage #:cl-htsql
-  (:use #:cl #:yacc #:cl-lex))
+  (:use #:cl #:yacc #:cl-lex)
+  (:export
+   ;; operators
+   #:\(
+   #:\)
+   #:@
+   #:|\||
+   #:&
+   ;; conditions
+   #:htsql-parse-error
+   ;; functions
+   #:parse-htsql-query))

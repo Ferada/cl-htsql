@@ -28,12 +28,14 @@
 
 (in-package #:cl-htsql-tests)
 
+(in-suite cl-htsql)
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro is-htsql-result (query result )
     `(is (equal ',result (parse-htsql-query ,query)))))
 
 (def-test empty ()
-  (signals yacc-parse-error (parse-htsql-query "")))
+  (signals htsql-parse-error (parse-htsql-query "")))
 
 (def-test skip ()
   (is-htsql-result "/" (:SKIP))
@@ -82,7 +84,7 @@
   (is-htsql-result "x&y|z&a"(:OPERATOR |\|| (:OPERATOR & (:IDENTIFIER "x") (:IDENTIFIER "y")) (:OPERATOR & (:IDENTIFIER "z") (:IDENTIFIER "a"))) ))
 
 (def-test detach ()
-  (signals yacc-parse-error (parse-htsql-query "@"))
+  (signals htsql-parse-error (parse-htsql-query "@"))
   (is-htsql-result "@x" (:DETACH (:IDENTIFIER "x")))
   (is-htsql-result "@x.y" (:COMPOSE (:DETACH (:IDENTIFIER "x")) (:IDENTIFIER "y")))
   (is-htsql-result "@x.y.z" (:COMPOSE (:COMPOSE (:DETACH (:IDENTIFIER "x")) (:IDENTIFIER "y")) (:IDENTIFIER "z"))))

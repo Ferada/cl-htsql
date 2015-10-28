@@ -28,17 +28,50 @@
 
 (in-package #:cl-htsql)
 
-(define-string-lexer string-lexer
-  ("/" (return (values '/ '/)))
-  ("\\|" (return (values '\| '\|)))
-  ("\\&" (return (values '& '&)))
-  ("=" (return (values '= '=)))
-  ("\\?" (return (values '? '?)))
-  ("~" (return (values '~ '~)))
-  ("@" (return (values '@ '@)))
-  ("\\." (return (values '\. '\.)))
-  ("\\(" (return (values '\( '\()))
-  ("\\)" (return (values '\) '\))))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun maybe-intern (name &optional (package NIL package-p))
+    "If NAME is a SYMBOL, return it, otherwise INTERN it."
+    (cond
+      ((symbolp name)
+       name)
+      (package-p
+       (intern name package))
+      (T
+       (intern name))))
+
+  (defmacro define-lexer (name &body patterns)
+    "Shortcut for DEFINE-STRING-LEXER."
+    `(define-string-lexer ,name
+       ,@(mapcar
+          (lambda (pattern)
+            (etypecase pattern
+              ((or symbol string)
+               (let ((symbol (maybe-intern pattern))
+                     (pattern (string pattern)))
+                 `(,pattern (return (values ',symbol ',symbol)))))
+              (list
+               (destructuring-bind (pattern &optional symbol value) pattern
+                 (let* ((symbol (or symbol (intern pattern)))
+                        (value (or value symbol)))
+                   (etypecase symbol
+                     (list
+                      `(,pattern ,symbol))
+                     (symbol
+                      `(,pattern (return (values ',symbol ',value))))))))))
+          patterns))))
+
+(define-lexer string-lexer
+  /
+  ("\\|" \|)
+  ("\\&" &)
+  "="
+  ("\\?" ?)
+  ~
+  @
+  ("\\." \.)
+  ("\\(" \()
+  ("\\)" \))
+
   ("-?0|[1-9][0-9]*(\\.[0-9]*)?([e|E][+-]?[0-9]+)?" (return (values 'number $@)))
   ("([^\"\\.\\?~\'=\\(\\)@\\|\\&/])+" (return (values 'name $@)))
   ("\'([^\\\']|\\.)*?\'" (return (values 'string (string-trim "\'" $@))))
@@ -100,6 +133,7 @@
    (number (lambda (x) `(:integer ,x)))))
 
 (defun make-lexer-for-source (source)
+  "Make a lexer for the SOURCE, either a STRING or a STREAM."
   (etypecase source
     (string (string-lexer source))
     (stream
@@ -108,13 +142,27 @@
        (stream-lexer #'read-line #'string-lexer #'ignore #'ignore)))))
 
 (defun lex-source (source)
+  "Debug helper to lex a SOURCE into a list of tokens."
   (let ((lexer (make-lexer-for-source source)))
     (loop
       for (x y) = (multiple-value-list (funcall lexer))
       while x
       collect (list x y))))
 
+(define-condition htsql-parse-error (error) ()
+  (:report
+   (lambda (condition stream)
+     (format stream "Failed to parse HTSQL query."))))
+
+(defun translate-yacc-error (error)
+  (make-condition 'htsql-parse-error))
+
 (defun parse-htsql-query (source)
-  (parse-with-lexer
-   (make-lexer-for-source source)
-   *expression-parser*))
+  "Parse SOURCE into a syntax tree.  The SOURCE may be either a STRING or
+a STREAM."
+  (handler-case
+      (parse-with-lexer
+       (make-lexer-for-source source)
+       *expression-parser*)
+    (yacc-parse-error (error)
+      (error (translate-yacc-error error)))))
