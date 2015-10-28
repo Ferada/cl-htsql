@@ -24,3 +24,13 @@ Again, some particular additional features are provided and some
 features may be missing.
 
 # USAGE
+
+Use `PARSE-HTSQL-QUERY` to get back a raw syntax tree:
+
+    > (parse-htsql-query "/x.y.z")
+    => (:COLLECT
+        (:COMPOSE
+         (:COMPOSE
+          (:IDENTIFIER "x")
+          (:IDENTIFIER "y"))
+         (:IDENTIFIER "z")))
