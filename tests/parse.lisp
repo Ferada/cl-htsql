@@ -47,10 +47,9 @@
   (is-htsql-result "school" (:IDENTIFIER "school"))
   (is-htsql-result "'school'" (:STRING "school"))
   (is-htsql-result "1" (:INTEGER "1"))
-  ;; (is-htsql-result "1.2" (:DECIMAL "1.2"))
-  ;; (is-htsql-result "1e2" (:FLOAT "1e2"))
-  ;; (is-htsql-result "1.2e3" (:FLOAT "1.2e3"))
-  )
+  (is-htsql-result "1.2" (:DECIMAL "1.2"))
+  (is-htsql-result "1e2" (:FLOAT "1e2"))
+  (is-htsql-result "1.2e3" (:FLOAT "1.2e3")))
 
 (def-test collect ()
   (is-htsql-result "/program" (:COLLECT (:IDENTIFIER "program")))

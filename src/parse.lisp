@@ -72,7 +72,14 @@
   ("\\(" \()
   ("\\)" \))
 
-  ("-?0|[1-9][0-9]*(\\.[0-9]*)?([e|E][+-]?[0-9]+)?" (return (values 'number $@)))
+  ("-?0|[1-9][0-9]*(\\.[0-9]*)?([e|E][+-]?[0-9]+)?"
+   (return (cond
+             ((find #\e $@)
+              (values 'float $@))
+             ((find #\. $@)
+              (values 'decimal $@))
+             (T
+              (values 'integer $@)))))
   ("([^\"\\.\\?~\'=\\(\\)@\\|\\&/])+" (return (values 'name $@)))
   ("\'([^\\\']|\\.)*?\'" (return (values 'string (string-trim "\'" $@))))
   ("\"([^\\\"]|\\.)*?\"" (return (values 'string (string-trim "\"" $@)))))
@@ -80,7 +87,7 @@
 ;; parser are results are to be treated immutable
 (define-parser *expression-parser*
   (:start-symbol flow)
-  (:terminals (|\|| & |.| ? / = ~ \( \) @ name number string))
+  (:terminals (|\|| & |.| ? / = ~ \( \) @ name integer decimal float string))
   (:precedence ((:left @) (:left |.|) (:left &) (:left |\||) (:left ?) (:left /)))
 
   (flow
@@ -94,7 +101,9 @@
    detach
    identifier
    (string (lambda (x) `(:string ,x)))
-   (number (lambda (x) `(:integer ,x))))
+   (integer (lambda (x) `(:integer ,x)))
+   (decimal (lambda (x) `(:decimal ,x)))
+   (float (lambda (x) `(:float ,x))))
 
   (segment
    (/ flow (lambda (x y) (declare (ignore x)) `(:collect ,y))))
@@ -130,7 +139,10 @@
   (term
    name
    (string (lambda (x) `(:string ,x)))
-   (number (lambda (x) `(:integer ,x)))))
+   (number (lambda (x) `(:integer ,x)))
+   (integer (lambda (x) `(:integer ,x)))
+   (decimal (lambda (x) `(:decimal ,x)))
+   (float (lambda (x) `(:float ,x)))))
 
 (defun make-lexer-for-source (source)
   "Make a lexer for the SOURCE, either a STRING or a STREAM."
