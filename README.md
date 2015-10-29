@@ -34,3 +34,20 @@ Use `PARSE-HTSQL-QUERY` to get back a raw syntax tree:
           (:IDENTIFIER "x")
           (:IDENTIFIER "y"))
          (:IDENTIFIER "z")))
+
+## CLSQL
+
+Have an open database:
+
+    (clsql:connect (list (truename #P"~/htsql_demo.sqlite")) :database-type :sqlite3 :encoding :utf-8)
+
+(At the time of writing CLSQL is using `NAMESTRING` instead `TRUENAME`
+on `PATHNAME` arguments.)
+
+Print query output:
+
+    > (clsql:print-query
+       (transform-htsql-query
+        (fetch-schema clsql:*default-database*)
+        (parse-htsql-query "/department?code='astro'")))
+    => astro Astronomy ns

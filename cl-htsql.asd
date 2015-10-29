@@ -33,7 +33,7 @@
   :license "Simplified BSD License"
   :version "0.0.1"
   #+asdf-unicode :encoding #+asdf-unicode :utf-8
-  :depends-on (#:yacc #:cl-lex)
+  :depends-on (#:alexandria #:arnesi #:cl-lex #:clsql #:yacc)
   :in-order-to ((asdf:test-op (asdf:load-op #:cl-htsql-tests)))
   :perform (asdf:test-op :after (op c)
              (funcall (find-symbol (symbol-name '#:run!) '#:fiveam)
@@ -43,4 +43,6 @@
                (:module "src"
                 :components
                 ((:file "package")
-                 (:file "parse")))))
+                 (:file "parse")
+                 (:file "database")
+                 (:file "query")))))

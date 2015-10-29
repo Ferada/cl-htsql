@@ -1,4 +1,4 @@
-;; -*- mode: lisp; syntax: common-lisp; coding: utf-8-unix; package: cl-user; -*-
+;; -*- mode: lisp; syntax: common-lisp; coding: utf-8-unix; package: cl-htsql; -*-
 
 ;; Copyright (c) 2015, Olof-Joachim Frahm
 ;; All rights reserved.
@@ -26,20 +26,32 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 ;; OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(in-package #:cl-user)
+(in-package #:cl-htsql)
 
-(defpackage #:cl-htsql
-  (:use #:cl #:alexandria #:cl-lex #:yacc)
-  (:import-from #:arnesi #:with-collector)
-  (:export
-   ;; operators
-   #:\(
-   #:\)
-   #:@
-   #:|\||
-   #:&
-   #:!
-   ;; conditions
-   #:htsql-parse-error
-   ;; functions
-   #:parse-htsql-query))
+(defun make-object-query (type htsql-query)
+  (let ((query [select type]))
+    (setf (slot-value query 'clsql-sys::exp)
+          (list :from (slot-value htsql-query 'clsql-sys::from)
+                :where (slot-value htsql-query 'clsql-sys::where)))
+    query))
+
+(defclass database-schema ()
+  ((tables :initarg :tables)
+   (foreign-keys :initarg :foreign-keys)))
+
+(defun fetch-schema (database)
+  (make-instance
+   'database-schema
+   :tables (clsql:list-tables :database database)
+   :foreign-keys '(("department_school_fk" "department" "school" ("school_code") ("code")))))
+
+(defun find-table-join (schema table1 table2)
+  (let ((rotate (string< table2 table1)))
+    (when rotate
+      (rotatef table1 table2))
+    (dolist (foreign-key (slot-value schema 'foreign-keys))
+      (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
+        (when (and (equal table1 fk-table1)
+                   (equal table2 fk-table2))
+          (let ((result (list (car key1) (car key2))))
+            (return (if rotate (rotate result) result))))))))
