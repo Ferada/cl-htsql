@@ -37,7 +37,7 @@
   :in-order-to ((asdf:test-op (asdf:load-op #:cl-htsql-tests)))
   :perform (asdf:test-op :after (op c)
              (funcall (find-symbol (symbol-name '#:run!) '#:fiveam)
-                      (find-symbol (symbol-name '#:cl-htsql) '#:cl-htsql)))
+                      (find-symbol (symbol-name '#:cl-htsql) '#:cl-htsql-tests)))
   :serial T
   :components ((:static-file "README.md")
                (:module "src"
