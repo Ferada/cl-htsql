@@ -29,4 +29,5 @@
 (in-package #:cl-user)
 
 (defpackage #:cl-htsql-tests
-  (:use #:cl #:cl-htsql #:fiveam))
+  (:use #:cl #:cl-htsql #:fiveam)
+  (:shadowing-import-from #:cl-htsql #:!))
