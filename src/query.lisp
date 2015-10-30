@@ -30,38 +30,38 @@
 
 (defun traverse-query (function query)
   (labels ((aux (query &aux (car (car query)) (cdr (cdr query)))
-             (funcall function query)
-             (symbol-macrolet ((cadr (car cdr))
-                               (caddr (cadr cdr)))
-               (ecase car
-                 (:collect
-                  (aux cadr))
-                 (:compose
-                  (aux cadr)
-                  (aux caddr))
-                 (:locate
-                  (aux cadr)
-                  (aux caddr))
-                 (:group
-                  (aux cadr))
-                 (:filter
-                  (aux cadr))
-                 ((:identity :identifier))))))
+             (prog1 (funcall function query)
+               (symbol-macrolet ((cadr (car cdr))
+                                 (caddr (cadr cdr)))
+                 (ecase car
+                   (:collect
+                    (aux cadr))
+                   (:compose
+                    (aux cadr)
+                    (aux caddr))
+                   (:locate
+                    (aux cadr)
+                    (aux caddr))
+                   (:group
+                    (aux cadr))
+                   (:filter
+                    (aux cadr))
+                   ((:identity :identifier)))))))
     (aux query)))
 
 (defun collect-query-tables (query)
   (with-collector (tables)
-    (labels ((aux (query)
-               (when (eq (car query) :identifier)
-                 (tables query))))
+    (flet ((aux (query)
+             (when (eq (car query) :identifier)
+               (tables query))))
       (traverse-query #'aux query))
     (tables)))
 
 (defun collect-query-filters (query)
   (with-collector (filters)
-    (labels ((aux (query)
-               (when (eq (car query) :filter)
-                 (filters query))))
+    (flet ((aux (query)
+             (when (eq (car query) :filter)
+               (filters query))))
       (traverse-query #'aux query))
     (filters)))
 
@@ -69,6 +69,25 @@
   (ecase (car filter)
     (:filter (find-table-name (cadr filter)))
     (:identifier filter)))
+
+(defun simplify-query (query)
+  (labels ((aux (query &aux (car (car query)) (cdr (cdr query)))
+             (symbol-macrolet ((cadr (car cdr))
+                               (caddr (cadr cdr)))
+               (ecase car
+                 (:collect
+                  `(,car ,(aux cadr)))
+                 (:compose
+                  `(,car ,(aux cadr) ,(aux caddr)))
+                 (:locate
+                  `(,car ,(aux cadr) ,(aux caddr)))
+                 (:group
+                  (aux cadr))
+                 (:filter
+                  `(,car (aux cadr)))
+                 ((:identity :identifier)
+                  query)))))
+    (aux query)))
 
 (defun transform-htsql-query (schema query &key (limit 100))
   (let ((tables (collect-query-tables query))
