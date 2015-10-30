@@ -183,13 +183,13 @@
       while x
       collect (list x y))))
 
-(define-condition htsql-parse-error (error) ()
-  (:report
-   (lambda (condition stream)
-     (format stream "Failed to parse HTSQL query."))))
+(define-condition htsql-parse-error (simple-error) ())
 
 (defun translate-yacc-error (error)
-  (make-condition 'htsql-parse-error))
+  (make-condition
+   'htsql-parse-error
+   :format-control "Couldn't parse HTSQL query: ~A."
+   :format-arguments (list error)))
 
 (defun parse-htsql-query (source)
   "Parse SOURCE into a syntax tree.  The SOURCE may be either a STRING or
