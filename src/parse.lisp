@@ -64,18 +64,25 @@
   /
   ("\\|" \|)
   ("\\&" &)
-  "="
-  ("\\?" ?)
+  <=
+  >=
+  ==
+  =
+  !==
+  !=
+  !~
+  !
   ~
+  <
+  >
   @
+  ("\\?" ?)
   ("\\." \.)
   ("\\(" \()
   ("\\)" \))
   ("\\+" +)
   -
   ("\\*" *)
-  !
-
   ("-?0|[1-9][0-9]*(\\.[0-9]*)?([e|E][+-]?[0-9]+)?"
    (return (cond
              ((find #\e $@)
@@ -91,8 +98,8 @@
 ;; parser are results are to be treated immutable
 (define-parser *expression-parser*
   (:start-symbol query)
-  (:terminals (|\|| & ! |.| ? / = ~ \( \) + - * @ name integer decimal float string))
-  (:precedence ((:left @) (:left =) (:left ~) (:left |.|) (:left + -) (:left * /) (:left !) (:left &) (:left |\||) (:left ?)))
+  (:terminals (|\|| & ! |.| ? / = != !== !~ ~ < > == <= >= \( \) + - * @ name integer decimal float string))
+  (:precedence ((:left @)  (:left ~) (:left = != == !== ~ !~ < <= > >=) (:left |.|) (:left + -) (:left * /) (:left !) (:left &) (:left |\||) (:left ?)))
 
   (query
    segment)
@@ -110,14 +117,10 @@
    not
    addition
    multiplication
-   condition
+   comparison
    composition
    detach
-   identifier
-   (string (lambda (x) `(:string ,x)))
-   (integer (lambda (x) `(:integer ,x)))
-   (decimal (lambda (x) `(:decimal ,x)))
-   (float (lambda (x) `(:float ,x))))
+   term)
 
   (skip
    (/ (constantly '(:skip))))
@@ -145,9 +148,17 @@
    (flow * flow (lambda (x y z) `(:operator ,y ,x ,z)))
    (flow / flow (lambda (x y z) `(:operator ,y ,x ,z))))
 
-  (condition
-   (identifier = term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (identifier ~ term (lambda (x y z) `(:operator ,y ,x ,z))))
+  (comparison
+   (term = term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term != term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term ~ term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term !~ term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term == term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term !== term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term < term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term <= term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term > term (lambda (x y z) `(:operator ,y ,x ,z)))
+   (term >= term (lambda (x y z) `(:operator ,y ,x ,z))))
 
   (composition
    (flow |.| flow (lambda (x y z) (declare (ignore y)) `(:compose ,x ,z))))
@@ -155,11 +166,8 @@
   (detach
    (@ flow (lambda (x y) (declare (ignore x)) `(:detach ,y))))
 
-  (identifier
-   (name (lambda (x) `(:identifier ,x))))
-
   (term
-   name
+   (name (lambda (x) `(:identifier ,x)))
    (string (lambda (x) `(:string ,x)))
    (number (lambda (x) `(:integer ,x)))
    (integer (lambda (x) `(:integer ,x)))

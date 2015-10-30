@@ -87,6 +87,15 @@
 (def-test not ()
   (is-htsql-result "!true" (:PREFIX ! (:IDENTIFIER "true"))))
 
+(def-test comparison ()
+  (is-htsql-result "1<2" (:OPERATOR < (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1<=2" (:OPERATOR <= (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1>2" (:OPERATOR > (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1>=2" (:OPERATOR <= (:INTEGER "1") (:INTEGER "2")))
+  (signals htsql-parse-error (parse-htsql-query "1<2<3"))
+  (signals htsql-parse-error (parse-htsql-query "1=2=3"))
+  (is-htsql-result "1</2" (:OPERATOR < (:INTEGER "1") (:COLLECT (:INTEGER "2")))))
+
 (def-test add/sub ()
   (is-htsql-result "1+2" (:OPERATOR + (:INTEGER "1") (:INTEGER "2")))
   (is-htsql-result "1-2" (:OPERATOR - (:INTEGER "1") (:INTEGER "2")))
