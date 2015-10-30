@@ -71,6 +71,10 @@
   ("\\." \.)
   ("\\(" \()
   ("\\)" \))
+  ("\\+" +)
+  -
+  ("\\*" *)
+  !
 
   ("-?0|[1-9][0-9]*(\\.[0-9]*)?([e|E][+-]?[0-9]+)?"
    (return (cond
@@ -86,17 +90,27 @@
 
 ;; parser are results are to be treated immutable
 (define-parser *expression-parser*
-  (:start-symbol flow)
-  (:terminals (|\|| & |.| ? / = ~ \( \) @ name integer decimal float string))
-  (:precedence ((:left @) (:left |.|) (:left &) (:left |\||) (:left ?) (:left /)))
+  (:start-symbol query)
+  (:terminals (|\|| & ! |.| ? / = ~ \( \) + - * @ name integer decimal float string))
+  (:precedence ((:left @) (:left =) (:left ~) (:left |.|) (:left + -) (:left * /) (:left !) (:left &) (:left |\||) (:left ?)))
+
+  (query
+   segment)
+
+  (segment
+   (/ segment (lambda (x y) (declare (ignore x)) `(:collect ,y)))
+   skip
+   flow)
 
   (flow
-   segment
-   skip
    group
    sieve
    or
    and
+   not
+   addition
+   multiplication
+   condition
    composition
    detach
    identifier
@@ -105,14 +119,11 @@
    (decimal (lambda (x) `(:decimal ,x)))
    (float (lambda (x) `(:float ,x))))
 
-  (segment
-   (/ flow (lambda (x y) (declare (ignore x)) `(:collect ,y))))
-
   (skip
    (/ (constantly '(:skip))))
 
   (group
-   (\( flow \) (lambda (x y z) (declare (ignore x z)) `(:group ,y))))
+   (\( segment \) (lambda (x y z) (declare (ignore x z)) `(:group ,y))))
 
   (sieve
    (flow ? flow (lambda (x y z) (declare (ignore y)) `(:filter ,x ,z))))
@@ -122,6 +133,17 @@
 
   (and
    (flow & flow (lambda (x y z) `(:operator ,y ,x ,z))))
+
+  (not
+   (! flow (lambda (x y) `(:prefix ,x ,y))))
+
+  (addition
+   (flow + flow (lambda (x y z) `(:operator ,y ,x ,z)))
+   (flow - flow (lambda (x y z) `(:operator ,y ,x ,z))))
+
+  (multiplication
+   (flow * flow (lambda (x y z) `(:operator ,y ,x ,z)))
+   (flow / flow (lambda (x y z) `(:operator ,y ,x ,z))))
 
   (condition
    (identifier = term (lambda (x y z) `(:operator ,y ,x ,z)))

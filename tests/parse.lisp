@@ -41,7 +41,9 @@
   (is-htsql-result "/" (:SKIP))
   (is-htsql-result "//" (:COLLECT (:SKIP)))
   (is-htsql-result "(/)" (:GROUP (:SKIP)))
-  (is-htsql-result "(//)" (:GROUP (:COLLECT (:SKIP)))))
+  (is-htsql-result "/(/)" (:COLLECT (:GROUP (:SKIP))))
+  (is-htsql-result "(//)" (:GROUP (:COLLECT (:SKIP))))
+  (is-htsql-result "/(//)" (:COLLECT (:GROUP (:COLLECT (:SKIP))))))
 
 (def-test literals ()
   (is-htsql-result "school" (:IDENTIFIER "school"))
@@ -81,6 +83,24 @@
   (is-htsql-result "x|y&z" (:OPERATOR |\|| (:IDENTIFIER "x") (:OPERATOR & (:IDENTIFIER "y") (:IDENTIFIER "z"))))
   (is-htsql-result "x|y&z|a" (:OPERATOR |\|| (:OPERATOR |\|| (:IDENTIFIER "x") (:OPERATOR & (:IDENTIFIER "y") (:IDENTIFIER "z"))) (:IDENTIFIER "a")))
   (is-htsql-result "x&y|z&a"(:OPERATOR |\|| (:OPERATOR & (:IDENTIFIER "x") (:IDENTIFIER "y")) (:OPERATOR & (:IDENTIFIER "z") (:IDENTIFIER "a"))) ))
+
+(def-test not ()
+  (is-htsql-result "!true" (:PREFIX ! (:IDENTIFIER "true"))))
+
+(def-test add/sub ()
+  (is-htsql-result "1+2" (:OPERATOR + (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1-2" (:OPERATOR - (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1+2-3" (:OPERATOR - (:OPERATOR + (:INTEGER "1") (:INTEGER "2")) (:INTEGER "3")))
+  (is-htsql-result "1-2+3" (:OPERATOR + (:OPERATOR - (:INTEGER "1") (:INTEGER "2")) (:INTEGER "3"))))
+
+(def-test mul/div ()
+  (is-htsql-result "1*2" (:OPERATOR * (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1/2" (:OPERATOR / (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1*2/3" (:OPERATOR / (:OPERATOR * (:INTEGER "1") (:INTEGER "2")) (:INTEGER "3")))
+  (is-htsql-result "1/2*3" (:OPERATOR * (:OPERATOR / (:INTEGER "1") (:INTEGER "2")) (:INTEGER "3"))))
+
+(def-test skip/collect/div/infix ()
+  (is-htsql-result "/1/2/:csv" (:PIPE (:IDENTIFIER "csv") (:COLLECT / (:OPERATOR / (:INTEGER "1") (:INTEGER "2"))))))
 
 (def-test detach ()
   (signals htsql-parse-error (parse-htsql-query "@"))

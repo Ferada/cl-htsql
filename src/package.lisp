@@ -37,6 +37,7 @@
    #:@
    #:|\||
    #:&
+   #:!
    ;; conditions
    #:htsql-parse-error
    ;; functions
