@@ -84,8 +84,8 @@
                  (:group
                   (aux cadr))
                  (:filter
-                  `(,car (aux cadr)))
-                 ((:identity :identifier)
+                  `(,car ,(aux cadr) ,(aux caddr)))
+                 ((:identity :identifier :operator)
                   query)))))
     (aux query)))
 
@@ -119,14 +119,14 @@
                           (clsql:sql-operation
                            (ecase operator
                              (~ 'like)
-                             (= '=)
+                             ((= < > <= >=) operator)
                              (|\|| 'or)
                              (& 'and))
                            (clsql:sql-expression :table (cadr (find-table-name filter))
                                                  :attribute (cadr (caddr (caddr filter))))
                            (ecase operator
                              (~ (format NIL "%~A%" (cadr (cadddr (caddr filter)))))
-                             ((= |\|| &) (cadr (cadddr (caddr filter))))))))
+                             ((= |\|| & < > <= >=) (cadr (cadddr (caddr filter))))))))
                       filters)))
      (append
       (and limit (list :limit limit))))))

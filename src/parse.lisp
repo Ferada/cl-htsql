@@ -91,7 +91,7 @@
               (values 'decimal $@))
              (T
               (values 'integer $@)))))
-  ("([^\"\\.\\?~\'=\\(\\)@\\|\\&/])+" (return (values 'name $@)))
+  ("([^\"\\.\\?~\'=<>\\(\\)@\\|\\&/])+" (return (values 'name $@)))
   ("\'([^\\\']|\\.)*?\'" (return (values 'string (string-trim "\'" $@))))
   ("\"([^\\\"]|\\.)*?\"" (return (values 'string (string-trim "\"" $@)))))
 

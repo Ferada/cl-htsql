@@ -28,6 +28,8 @@
 
 (in-package #:cl-htsql)
 
+(clsql:file-enable-sql-reader-syntax)
+
 (defun make-object-query (type htsql-query)
   (let ((query [select type]))
     (setf (slot-value query 'clsql-sys::exp)
