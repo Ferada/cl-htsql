@@ -68,7 +68,8 @@
 (defun find-table-name (filter)
   (ecase (car filter)
     (:filter (find-table-name (cadr filter)))
-    (:identifier filter)))
+    (:identifier filter)
+    (:compose (find-table-name (caddr filter)))))
 
 (defun simplify-query (query)
   (labels ((aux (query &aux (car (car query)) (cdr (cdr query)))
@@ -85,48 +86,72 @@
                   (aux cadr))
                  (:filter
                   `(,car ,(aux cadr) ,(aux caddr)))
-                 ((:identity :identifier :operator)
+                 ((:identity :identifier :operator :skip)
                   query)))))
     (aux query)))
 
 (defun transform-htsql-query (schema query &key (limit 100))
-  (let ((tables (collect-query-tables query))
-        (filters (collect-query-filters query)))
-    (apply
-     #'clsql:sql-operation
-     'select
-     (clsql:sql-expression :alias (cadr (car (last tables))) :attribute '*)
-     :from (mapcar (lambda (table)
-                     (clsql:sql-expression :table (cadr table)))
-                   tables)
-     :where (apply
-             #'clsql:sql-operation
-             'and
-             (append
-              (mapcar (lambda (table1 table2)
-                        (let* ((name1 (cadr table1))
-                               (name2 (cadr table2))
-                               (join (find-table-join schema name1 name2)))
-                          (clsql:sql-operation
-                           '=
-                           (clsql:sql-expression :table name1
-                                                 :attribute (car join))
-                           (clsql:sql-expression :table name2
-                                                 :attribute (cadr join)))))
-                      tables (cdr tables))
-              (mapcar (lambda (filter)
-                        (let ((operator (cadr (caddr filter))))
-                          (clsql:sql-operation
-                           (ecase operator
-                             (~ 'like)
-                             ((= < > <= >=) operator)
-                             (|\|| 'or)
-                             (& 'and))
-                           (clsql:sql-expression :table (cadr (find-table-name filter))
-                                                 :attribute (cadr (caddr (caddr filter))))
-                           (ecase operator
-                             (~ (format NIL "%~A%" (cadr (cadddr (caddr filter)))))
-                             ((= |\|| & < > <= >=) (cadr (cadddr (caddr filter))))))))
-                      filters)))
-     (append
-      (and limit (list :limit limit))))))
+  (if (eq (car query) :skip)
+      NIL
+      (let* ((tables (collect-query-tables query))
+             (filters (collect-query-filters query))
+             path-tables
+             (where (apply
+                     #'clsql:sql-operation
+                     'and
+                     (append
+                      (mapcan (lambda (table1 table2)
+                                (let* ((name1 (cadr table1))
+                                       (name2 (cadr table2))
+                                       (path (find-table-path schema name1 name2 (list NIL))))
+                                  (unless path
+                                    (error "Couldn't find path between ~A and ~A." name1 name2))
+                                  (mapcar (lambda (join)
+                                            (pushnew (car (cdr join)) path-tables :test #'equal)
+                                            (pushnew (cadr (cdr join)) path-tables :test #'equal)
+                                            (clsql:sql-operation
+                                             '=
+                                             (clsql:sql-expression :table (car (cdr join))
+                                                                   :attribute (car (caddr (cdr join))))
+                                             (clsql:sql-expression :table (cadr (cdr join))
+                                                                   :attribute (car (cadddr (cdr join))))))
+                                          path)))
+                              tables (cdr tables))
+                      (labels ((transform-operator (table clause)
+                                 (let ((operator (cadr clause)))
+                                   (list
+                                    (clsql:sql-operation
+                                     (ecase operator
+                                       (~ 'like)
+                                       ((= < > <= >=) operator)
+                                       (|\|| 'or)
+                                       (& 'and))
+                                     (ecase (car (caddr clause))
+                                       ((:identifier :string)
+                                        (clsql:sql-expression :table table
+                                                              :attribute (cadr (caddr clause))))
+                                       (:operator
+                                        (car (transform-operator table (caddr clause)))))
+                                     (ecase (car (cadddr clause))
+                                       ((:identifier :integer :string)
+                                        (ecase operator
+                                          (~ (format NIL "%~A%" (cadr (cadddr clause))))
+                                          ((= |\|| & < > <= >=) (cadr (cadddr clause)))))
+                                       (:operator
+                                        (car (transform-operator table (cadddr clause))))))))))
+                        (mapcan (lambda (filter)
+                                  (transform-operator (cadr (find-table-name filter)) (caddr filter)))
+                                filters))))))
+        (pushnew (cadr (car tables)) path-tables :test #'equal)
+        (apply
+         #'clsql:sql-operation
+         'select
+         ;; TODO get some output format where we can retrieve and merge all the components
+         (clsql:sql-expression :alias (cadr (car (last tables))) :attribute '*)
+         :from (mapcar (lambda (table)
+                         (clsql:sql-expression :table table))
+                       (nreverse path-tables))
+         :where where
+         (append
+          (and limit (list :limit limit))))))
+  )

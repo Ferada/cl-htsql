@@ -56,7 +56,11 @@
 (def-test collect ()
   (is-htsql-result "/program" (:COLLECT (:IDENTIFIER "program")))
   (is-htsql-result "/'school'" (:COLLECT (:STRING "school")))
-  (is-htsql-result "/5" (:COLLECT (:INTEGER "5"))))
+  (is-htsql-result "/5" (:COLLECT (:INTEGER "5")))
+  (signals htsql-parse-error (parse-htsql-query "/1/"))
+  (is-htsql-result "/1//" (:COLLECT (:OPERATOR / (:INTEGER "1") (:SKIP))))
+  (is-htsql-result "/1/2" (:COLLECT (:OPERATOR / (:INTEGER "1") (:INTEGER "2"))))
+  (is-htsql-result "/1//2" (:COLLECT (:OPERATOR / (:INTEGER "1") (:COLLECT (:INTEGER "2"))))))
 
 (def-test group ()
   (is-htsql-result "(x)" (:GROUP (:IDENTIFIER "x")))
@@ -91,7 +95,7 @@
   (is-htsql-result "1<2" (:OPERATOR < (:INTEGER "1") (:INTEGER "2")))
   (is-htsql-result "1<=2" (:OPERATOR <= (:INTEGER "1") (:INTEGER "2")))
   (is-htsql-result "1>2" (:OPERATOR > (:INTEGER "1") (:INTEGER "2")))
-  (is-htsql-result "1>=2" (:OPERATOR <= (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "1>=2" (:OPERATOR >= (:INTEGER "1") (:INTEGER "2")))
   (signals htsql-parse-error (parse-htsql-query "1<2<3"))
   (signals htsql-parse-error (parse-htsql-query "1=2=3"))
   (is-htsql-result "1</2" (:OPERATOR < (:INTEGER "1") (:COLLECT (:INTEGER "2")))))
@@ -109,7 +113,7 @@
   (is-htsql-result "1/2*3" (:OPERATOR * (:OPERATOR / (:INTEGER "1") (:INTEGER "2")) (:INTEGER "3"))))
 
 (def-test skip/collect/div/infix ()
-  (is-htsql-result "/1/2/:csv" (:PIPE (:IDENTIFIER "csv") (:COLLECT / (:OPERATOR / (:INTEGER "1") (:INTEGER "2"))))))
+  (is-htsql-result "/1/2/:csv" (:PIPE (:IDENTIFIER "csv") (:COLLECT (:OPERATOR / (:INTEGER "1") (:INTEGER "2"))))))
 
 (def-test detach ()
   (signals htsql-parse-error (parse-htsql-query "@"))

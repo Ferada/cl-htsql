@@ -41,19 +41,53 @@
   ((tables :initarg :tables)
    (foreign-keys :initarg :foreign-keys)))
 
+(defun list-foreign-keys (&key (database clsql:*default-database*))
+  "Return a LIST of foreign keys, where each key is represented by a LIST
+\(NAME TABLE1 TABLE2 (COLUMN1) (COLUMN2))."
+  (%list-foreign-keys database))
+
+(defgeneric %list-foreign-keys (database))
+
+(defmethod %list-foreign-keys ((database clsql-postgresql:postgresql-database))
+  (with-collector (result)
+    (clsql:do-query ((foreign-key table1 table2 column1 column2)
+                     [select [tc constraint_name] [tc table_name] [ccu table_name] [kcu column_name] [ccu column_name]
+                             :from '([[information_schema table_constraints] "tc"]
+                                     [[information_schema key_column_usage] "kcu"]
+                                     [[information_schema constraint_column_usage] "ccu"])
+                             :where [and [= [tc constraint_name] [kcu constraint_name]]
+                                         [= [tc constraint_name] [ccu constraint_name]]
+                                         [= [tc constraint_type] "FOREIGN KEY"]]]
+                     :database database)
+      (result `(,foreign-key ,table1 ,table2 (,column1) (,column2))))
+    (result)))
+
 (defun fetch-schema (database)
   (make-instance
    'database-schema
    :tables (clsql:list-tables :database database)
-   :foreign-keys '(("department_school_fk" "department" "school" ("school_code") ("code")))))
+   :foreign-keys (list-foreign-keys :database database)))
 
 (defun find-table-join (schema table1 table2)
-  (let ((rotate (string< table2 table1)))
-    (when rotate
-      (rotatef table1 table2))
-    (dolist (foreign-key (slot-value schema 'foreign-keys))
-      (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
-        (when (and (equal table1 fk-table1)
-                   (equal table2 fk-table2))
-          (let ((result (list (car key1) (car key2))))
-            (return (if rotate (rotate result) result))))))))
+  (dolist (foreign-key (slot-value schema 'foreign-keys))
+    (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
+      (when (and (equal table1 fk-table1)
+                 (equal table2 fk-table2))
+        (return (list name key1 key2)))
+      (when (and (equal table1 fk-table2)
+                 (equal table2 fk-table1))
+        (return (list name key2 key1))))))
+
+(defun find-table-path (schema table1 table2 &optional (seen (list NIL)))
+  (let ((join (find-table-join schema table1 table2)))
+    (if join
+        (list (list* (car join) table1 table2 (cdr join)))
+        (dolist (foreign-key (slot-value schema 'foreign-keys))
+          (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
+            ;; (logv:format-log "~A" foreign-key)
+            (unless (member fk-table2 (car seen) :test #'equal)
+              (when (equal table1 fk-table2)
+                ;; (logv:format-log "~A <-> ~A      ~A <-> ~A" table1 table2 fk-table1 fk-table2)
+                (let ((path (find-table-path schema fk-table1 table2 (prog1 seen (push fk-table1 (car seen))))))
+                  (when path
+                    (return (list* (list name fk-table2 fk-table1 key2 key1) path)))))))))))
