@@ -48,6 +48,25 @@
 
 (defgeneric %list-foreign-keys (database))
 
+(defmethod %list-foreign-keys ((database clsql-sqlite3:sqlite3-database))
+  (with-collector (result)
+    (dolist (table-name (clsql:list-tables :database database))
+      (let (current)
+        (clsql:do-query ((id seq table from to on_update on_delete match)
+                         (format NIL "PRAGMA foreign_key_list('~A')" table-name))
+          (if current
+              (if (eql id (car current))
+                  (progn
+                    (nconcf (sixth current) (list from))
+                    (nconcf (seventh current) (list to)))
+                  (progn
+                    (result current)
+                    (setf current (list id seq NIL table-name table (list from) (list to)))))
+              (setf current (list id seq NIL table-name table (list from) (list to)))))
+        (when current
+          (result current))))
+    (mapcar #'cddr (result))))
+
 (defmethod %list-foreign-keys ((database clsql-postgresql:postgresql-database))
   (with-collector (result)
     (clsql:do-query ((foreign-key table1 table2 column1 column2)
@@ -70,6 +89,7 @@
 
 (defun find-table-join (schema table1 table2)
   (dolist (foreign-key (slot-value schema 'foreign-keys))
+    ;; (logv:logv foreign-key)
     (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
       (when (and (equal table1 fk-table1)
                  (equal table2 fk-table2))
@@ -85,9 +105,15 @@
         (dolist (foreign-key (slot-value schema 'foreign-keys))
           (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
             ;; (logv:format-log "~A" foreign-key)
-            (unless (member fk-table2 (car seen) :test #'equal)
-              (when (equal table1 fk-table2)
+            (when (equal table1 fk-table2)
+              (unless (member fk-table2 (car seen) :test #'equal)
                 ;; (logv:format-log "~A <-> ~A      ~A <-> ~A" table1 table2 fk-table1 fk-table2)
                 (let ((path (find-table-path schema fk-table1 table2 (prog1 seen (push fk-table1 (car seen))))))
                   (when path
-                    (return (list* (list name fk-table2 fk-table1 key2 key1) path)))))))))))
+                    (return (list* (list name fk-table2 fk-table1 key2 key1) path))))))
+            (when (equal table1 fk-table1)
+              (unless (member fk-table1 (car seen) :test #'equal)
+                ;; (logv:format-log "~A <-> ~A      ~A <-> ~A" table1 table2 fk-table1 fk-table2)
+                (let ((path (find-table-path schema fk-table2 table2 (prog1 seen (push fk-table2 (car seen))))))
+                  (when path
+                    (return (list* (list name fk-table1 fk-table2 key2 key1) path)))))))))))

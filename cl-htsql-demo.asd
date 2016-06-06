@@ -1,6 +1,6 @@
 ;; -*- mode: lisp; syntax: common-lisp; coding: utf-8-unix; package: cl-user; -*-
 
-;; Copyright (c) 2015, Olof-Joachim Frahm
+;; Copyright (c) 2016, Olof-Joachim Frahm
 ;; All rights reserved.
 
 ;; Redistribution and use in source and binary forms, with or without
@@ -28,22 +28,10 @@
 
 (in-package #:cl-user)
 
-(asdf:defsystem #:cl-htsql
-  :author "Olof-Joachim Frahm <olof@macrolet.net>"
-  :license "Simplified BSD License"
-  :version "0.0.1"
-  #+asdf-unicode :encoding #+asdf-unicode :utf-8
-  ;; TODO: better loading for CLSQL database types
-  :depends-on (#:alexandria #:arnesi #:cl-lex #:clsql #:yacc #:clsql-postgresql #:clsql-sqlite3)
-  :in-order-to ((asdf:test-op (asdf:load-op #:cl-htsql-tests)))
-  :perform (asdf:test-op :after (op c)
-             (funcall (find-symbol (symbol-name '#:run!) '#:fiveam)
-                      (find-symbol (symbol-name '#:cl-htsql) '#:cl-htsql-tests)))
+(asdf:defsystem #:cl-htsql-demo
+  :depends-on (#:cl-htsql #:hunchentoot #:cl-who)
   :serial T
-  :components ((:static-file "README.md")
-               (:module "src"
+  :components ((:module "demo"
                 :components
                 ((:file "package")
-                 (:file "parse")
-                 (:file "database")
-                 (:file "query")))))
+                 (:file "demo")))))
