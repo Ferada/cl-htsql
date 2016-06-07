@@ -136,6 +136,7 @@
                                        ((:identifier :integer :string)
                                         (ecase operator
                                           (~ (format NIL "%~A%" (cadr (cadddr clause))))
+                                          ;; TODO: e.g. PARSE-INTEGER
                                           ((= |\|| & < > <= >=) (cadr (cadddr clause)))))
                                        (:operator
                                         (car (transform-operator table (cadddr clause))))))))))

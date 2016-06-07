@@ -29,7 +29,7 @@
 (in-package #:cl-user)
 
 (asdf:defsystem #:cl-htsql-demo
-  :depends-on (#:cl-htsql #:hunchentoot #:cl-who)
+  :depends-on (#:cl-htsql #:hunchentoot #:cl-who #:cl-dot)
   :serial T
   :components ((:module "demo"
                 :components
