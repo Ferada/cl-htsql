@@ -96,31 +96,6 @@
   ("\'([^\\\']|\\.)*?\'" (return (values 'string (string-trim "\'" $@))))
   ("\"([^\\\"]|\\.)*?\"" (return (values 'string (string-trim "\"" $@)))))
 
-#+(or)
-(define-parser *expression-parser*
-  (:start-symbol query)
-  (:terminals (|\|| & ! |.| ? / = != !== !~ ~ < > == <= >= \( \) + - * @ name integer decimal float string))
-  (:precedence ((:left @) (:left ~) (:left |.|) (:left + -) (:left *) (:left = != == !== ~ !~ < <= > >=) (:left !) (:left &) (:left |\||) (:left ?)))
-
-  (query
-   segment)
-
-  (segment
-   (/ segment (lambda (x y) (declare (ignore x)) `(:collect ,y)))
-   (/ (constantly '(:skip)))
-   group) 
-
-  (group
-   (\( group \) (lambda (x y z) (declare (ignore x z)) `(:group ,y)))
-   multiplication)
-
-  (multiplication
-   (multiplication / term (lambda (x y z) (declare (ignore y)) `(:operator / ,x ,z)))
-   term)
-
-  (term
-   (name (lambda (x) `(:identifier ,x)))))
-
 ;; parser are results are to be treated immutable
 (define-parser *expression-parser*
   (:muffle-conflicts (5 5))
@@ -133,7 +108,7 @@
   (segment
    (/ segment (lambda (x y) (declare (ignore x)) `(:collect ,y)))
    (/ (constantly '(:skip)))
-   group) 
+   group)
 
   (group
    mandatory-group
@@ -205,96 +180,6 @@
    (integer (lambda (x) `(:integer ,x)))
    (decimal (lambda (x) `(:decimal ,x)))
    (float (lambda (x) `(:float ,x)))))
-
-#+(or)
-(define-parser *expression-parser*
-  (:start-symbol query)
-  (:terminals (|\|| & ! |.| ? / = != !== !~ ~ < > == <= >= \( \) + - * @ name integer decimal float string))
-  (:precedence ((:left @)  (:left ~) (:left = != == !== ~ !~ < <= > >=) (:left |.|) (:left + -) (:left * /) (:left !) (:left &) (:left |\||) (:left ?)))
-
-  (query
-   segment)
-
-  (segment
-   (/ segment (lambda (x y) (declare (ignore x)) `(:collect ,y)))
-   skip
-   flow)
-
-  (flow
-   group
-   sieve
-   or
-   and
-   not
-   addition
-   multiplication
-   comparison
-   composition
-   detach
-   term)
-
-  (skip
-   (/ (constantly '(:skip))))
-
-  (group
-   (\( segment \) (lambda (x y z) (declare (ignore x z)) `(:group ,y))))
-
-  (sieve
-   (flow ? flow (lambda (x y z) (declare (ignore y)) `(:filter ,x ,z))))
-
-  (or
-   (flow |\|| flow (lambda (x y z) `(:operator ,y ,x ,z))))
-
-  (and
-   (flow & flow (lambda (x y z) `(:operator ,y ,x ,z))))
-
-  (not
-   (! flow (lambda (x y) `(:prefix ,x ,y))))
-
-  (addition
-   (flow + flow (lambda (x y z) `(:operator ,y ,x ,z)))
-   (flow - flow (lambda (x y z) `(:operator ,y ,x ,z))))
-
-  (multiplication
-   (flow * flow (lambda (x y z) `(:operator ,y ,x ,z)))
-   (flow / flow (lambda (x y z) `(:operator ,y ,x ,z))))
-
-  (comparison
-   (term = term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term != term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term ~ term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term !~ term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term == term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term !== term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term < term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term <= term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term > term (lambda (x y z) `(:operator ,y ,x ,z)))
-   (term >= term (lambda (x y z) `(:operator ,y ,x ,z))))
-
-  (composition
-   (flow |.| flow (lambda (x y z) (declare (ignore y)) `(:compose ,x ,z))))
-
-  (detach
-   (@ flow (lambda (x y) (declare (ignore x)) `(:detach ,y))))
-
-  (term
-   (name (lambda (x) `(:identifier ,x)))
-   (string (lambda (x) `(:string ,x)))
-   (number (lambda (x) `(:integer ,x)))
-   (integer (lambda (x) `(:integer ,x)))
-   (decimal (lambda (x) `(:decimal ,x)))
-   (float (lambda (x) `(:float ,x)))))
-
-#+(or)
-(defun context-string-lexer (source &key (start 0) (end (length source)))
-  (let ((lexer (string-lexer source :start start :end end))
-        last-s)
-    (lambda ()
-      (multiple-value-bind (s v) (funcall lexer)
-        (when (and (eq s '/) (not (or (eq last-s NIL) (eq last-s 'div))))
-          (setf s 'div))
-        (setf last-s s)
-        (values s v)))))
 
 (defun make-lexer-for-source (source)
   "Make a lexer for the SOURCE, either a STRING or a STREAM."

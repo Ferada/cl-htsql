@@ -89,7 +89,6 @@
 
 (defun find-table-join (schema table1 table2)
   (dolist (foreign-key (slot-value schema 'foreign-keys))
-    ;; (logv:logv foreign-key)
     (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
       (when (and (equal table1 fk-table1)
                  (equal table2 fk-table2))
@@ -104,16 +103,13 @@
         (list (list* (car join) table1 table2 (cdr join)))
         (dolist (foreign-key (slot-value schema 'foreign-keys))
           (destructuring-bind (name fk-table1 fk-table2 key1 key2) foreign-key
-            ;; (logv:format-log "~A" foreign-key)
             (when (equal table1 fk-table2)
               (unless (member fk-table2 (car seen) :test #'equal)
-                ;; (logv:format-log "~A <-> ~A      ~A <-> ~A" table1 table2 fk-table1 fk-table2)
                 (let ((path (find-table-path schema fk-table1 table2 (prog1 seen (push fk-table1 (car seen))))))
                   (when path
                     (return (list* (list name fk-table2 fk-table1 key2 key1) path))))))
             (when (equal table1 fk-table1)
               (unless (member fk-table1 (car seen) :test #'equal)
-                ;; (logv:format-log "~A <-> ~A      ~A <-> ~A" table1 table2 fk-table1 fk-table2)
                 (let ((path (find-table-path schema fk-table2 table2 (prog1 seen (push fk-table2 (car seen))))))
                   (when path
                     (return (list* (list name fk-table1 fk-table2 key2 key1) path)))))))))))
