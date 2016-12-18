@@ -66,17 +66,20 @@
            (:head
             (:style
              :type "text/css"
-             "html, a, a:link, pre { font-family: \"IBM 3270\"; background: #000; color: #0f0; } td { border: 1px solid; }"))
+             "html, a, a:link, pre { font-family: \"IBM 3270 Narrow\"; background: #000; color: #0f0; } td { border: 1px solid; }"))
            (:body
             (:h1 "CL-HTSQL DEMO")
             (let ((schema (cl-htsql::fetch-schema clsql:*default-database*)))
               (cond
                 ((or (string= query "/") (not query))
                  (htm
+                  (:h2 "EXAMPLES")
+                  (:a :href "/(school?name~Bus).appointment" "/(school?name~Bus).appointment")
                   (:h2 "TABLES")
                   (:ul
                    (dolist (table (slot-value schema 'cl-htsql::tables))
                      (htm (:li (:a :href (format NIL "/~A" table) (str table))))))
+                  (:h2 "FOREIGN KEYS")
                   (:ul
                    (dolist (foreign-key (slot-value schema 'cl-htsql::foreign-keys))
                      (htm (:li (str (format NIL "~S" foreign-key))))))
