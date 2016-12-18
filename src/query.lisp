@@ -154,5 +154,4 @@
                        (nreverse path-tables))
          :where where
          (append
-          (and limit (list :limit limit))))))
-  )
+          (and limit (list :limit limit)))))))

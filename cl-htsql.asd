@@ -34,7 +34,7 @@
   :version "0.0.1"
   #+asdf-unicode :encoding #+asdf-unicode :utf-8
   ;; TODO: better loading for CLSQL database types
-  :depends-on (#:alexandria #:arnesi #:cl-lex #:clsql #:yacc #:clsql-postgresql #:clsql-sqlite3)
+  :depends-on (#:alexandria #:arnesi #:cl-lex #:split-sequence #:cl-ppcre #:yacc #:clsql #:clsql-postgresql #:clsql-sqlite3)
   :in-order-to ((asdf:test-op (asdf:load-op #:cl-htsql-tests)))
   :perform (asdf:test-op :after (op c)
              (funcall (find-symbol (symbol-name '#:run!) '#:fiveam)

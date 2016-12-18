@@ -46,12 +46,12 @@
           (lambda (pattern)
             (etypecase pattern
               ((or symbol string)
-               (let ((symbol (maybe-intern pattern))
+               (let ((symbol (maybe-intern pattern #.(find-package '#:cl-htsql)))
                      (pattern (string pattern)))
                  `(,pattern (return (values ',symbol ',symbol)))))
               (list
                (destructuring-bind (pattern &optional symbol value) pattern
-                 (let* ((symbol (or symbol (intern pattern)))
+                 (let* ((symbol (or symbol (intern pattern #.(find-package '#:cl-htsql))))
                         (value (or value symbol)))
                    (etypecase symbol
                      (list

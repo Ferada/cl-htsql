@@ -29,7 +29,7 @@
 (in-package #:cl-user)
 
 (defpackage #:cl-htsql
-  (:use #:cl #:alexandria #:cl-lex #:yacc)
+  (:use #:cl #:alexandria #:cl-lex #:cl-ppcre #:split-sequence #:yacc)
   (:import-from #:arnesi #:with-collector)
   (:export
    ;; operators
