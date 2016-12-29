@@ -28,11 +28,14 @@
 
 (in-package #:cl-htsql)
 
+(clsql:file-enable-sql-reader-syntax)
+
 (defun traverse-query (function query)
   (labels ((aux (query &aux (car (car query)) (cdr (cdr query)))
              (prog1 (funcall function query)
                (symbol-macrolet ((cadr (car cdr))
-                                 (caddr (cadr cdr)))
+                                 (caddr (cadr cdr))
+                                 (cadddr (caddr cdr)))
                  (ecase car
                    (:collect
                     (aux cadr))
@@ -46,7 +49,9 @@
                     (aux cadr))
                    (:filter
                     (aux cadr))
-                   ((:identity :identifier)))))))
+                   (:function
+                    (mapc #'aux (cdr cdr)))
+                   ((:identity :identifier :integer)))))))
     (aux query)))
 
 (defun collect-query-tables (query)
@@ -82,20 +87,64 @@
                   `(,car ,(aux cadr) ,(aux caddr)))
                  (:locate
                   `(,car ,(aux cadr) ,(aux caddr)))
+                 ;; drop :GROUP because it's only syntactically useful
                  (:group
                   (aux cadr))
                  (:filter
                   `(,car ,(aux cadr) ,(aux caddr)))
-                 ((:identity :identifier :operator :skip)
+                 (:function
+                  `(,car ,cadr ,@(mapcar #'aux (cdr cdr))))
+                 ((:identity :identifier :integer :operator :skip)
                   query)))))
     (aux query)))
 
-(defun transform-htsql-query (schema query &key (limit 100))
-  (if (eq (car query) :skip)
-      NIL
+(defun transform-operator (table clause)
+  (ecase (car clause)
+    (:operator
+     (let ((operator (cadr clause)))
+       (list
+        (clsql:sql-operation
+         (ecase operator
+           (~ 'like)
+           ((= < > <= >=) operator)
+           (|\|| 'or)
+           (& 'and))
+         (ecase (car (caddr clause))
+           ((:identifier :string)
+            (clsql:sql-expression :table table :attribute (cadr (caddr clause))))
+           (:operator
+            (car (transform-operator table (caddr clause)))))
+         (ecase (car (cadddr clause))
+           ((:identifier :integer :string)
+            (ecase operator
+              (~ (format NIL "%~A%" (cadr (cadddr clause))))
+              ;; TODO: e.g. PARSE-INTEGER
+              ((= |\|| & < > <= >=) (cadr (cadddr clause)))))
+           (:operator
+            (car (transform-operator table (cadddr clause)))))))))
+    (:function
+     (let ((function (cadr clause)))
+       (ecase (car function)
+         (:identifier
+          (cond
+            ((string= (cadr function) "is_null")
+             (list
+              (clsql:sql-operation
+               'is
+               (ecase (car (caddr clause))
+                 ((:identifier)
+                  (clsql:sql-expression :table table :attribute (cadr (caddr clause)))))
+               [null])))
+            (T (error "Unknown function call to ~A." function)))))))))
+
+(defun transform-query (schema query)
+  (when (eq (car query) :skip)
+    (return-from transform-query))
+  (let (path-tables)
+    (flet ((record-path (path)
+             (pushnew path path-tables :test #'equal)))
       (let* ((tables (collect-query-tables query))
              (filters (collect-query-filters query))
-             path-tables
              (where (apply
                      #'clsql:sql-operation
                      'and
@@ -106,44 +155,21 @@
                                        (path (find-table-path schema name1 name2 (list NIL))))
                                   (unless path
                                     (error "Couldn't find path between ~A and ~A." name1 name2))
-                                  (mapcar (lambda (join)
-                                            (pushnew (car (cdr join)) path-tables :test #'equal)
-                                            (pushnew (cadr (cdr join)) path-tables :test #'equal)
+                                  (mapcar (lambda (join &aux (cdr (cdr join)))
+                                            (record-path (car cdr))
+                                            (record-path (cadr cdr))
                                             (clsql:sql-operation
                                              '=
-                                             (clsql:sql-expression :table (car (cdr join))
-                                                                   :attribute (car (caddr (cdr join))))
+                                             (clsql:sql-expression :table (car cdr)
+                                                                   :attribute (car (caddr cdr)))
                                              (clsql:sql-expression :table (cadr (cdr join))
-                                                                   :attribute (car (cadddr (cdr join))))))
+                                                                   :attribute (car (cadddr cdr)))))
                                           path)))
                               tables (cdr tables))
-                      (labels ((transform-operator (table clause)
-                                 (let ((operator (cadr clause)))
-                                   (list
-                                    (clsql:sql-operation
-                                     (ecase operator
-                                       (~ 'like)
-                                       ((= < > <= >=) operator)
-                                       (|\|| 'or)
-                                       (& 'and))
-                                     (ecase (car (caddr clause))
-                                       ((:identifier :string)
-                                        (clsql:sql-expression :table table
-                                                              :attribute (cadr (caddr clause))))
-                                       (:operator
-                                        (car (transform-operator table (caddr clause)))))
-                                     (ecase (car (cadddr clause))
-                                       ((:identifier :integer :string)
-                                        (ecase operator
-                                          (~ (format NIL "%~A%" (cadr (cadddr clause))))
-                                          ;; TODO: e.g. PARSE-INTEGER
-                                          ((= |\|| & < > <= >=) (cadr (cadddr clause)))))
-                                       (:operator
-                                        (car (transform-operator table (cadddr clause))))))))))
-                        (mapcan (lambda (filter)
-                                  (transform-operator (cadr (find-table-name filter)) (caddr filter)))
-                                filters))))))
-        (pushnew (cadr (car tables)) path-tables :test #'equal)
+                      (mapcan (lambda (filter)
+                                (transform-operator (cadr (find-table-name filter)) (caddr filter)))
+                              filters)))))
+        (record-path (cadr (car tables)))
         (apply
          #'clsql:sql-operation
          'select
@@ -152,6 +178,12 @@
          :from (mapcar (lambda (table)
                          (clsql:sql-expression :table table))
                        (nreverse path-tables))
-         :where where
-         (append
-          (and limit (list :limit limit)))))))
+         :where where)))))
+
+;; TODO: how to do indirection on the kind of database used?
+;; TODO: limit/offset needs to get direct syntax
+(defun map-query (function query &key (database clsql:*default-database*))
+  (let ((schema (fetch-schema database)))
+    ;; TODO: needs indirection to execute top non-SQL loop
+    (clsql:map-query NIL function (transform-query schema query) :database database))
+  (values))

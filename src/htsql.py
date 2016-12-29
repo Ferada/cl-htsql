@@ -62,3 +62,25 @@ def t(expression):
 
 # t(p("/'school'"))
 # (:COLLECT (:STRING "school"))
+
+# http://localhost:8080/school?(count(program.title~'Engi')>0&count(department.code~'a')>0)/:sql
+
+# -> /school?exists(program.title~'Engi') would be nice
+
+# SELECT "school"."code",
+#        "school"."name",
+#        "school"."campus"
+# FROM "school"
+#      LEFT OUTER JOIN (SELECT COUNT(NULLIF(("program"."title" LIKE '%Engi%' ESCAPE '\'), 0)) AS "count",
+#                              "program"."school_code"
+#                       FROM "program"
+#                       GROUP BY 2) AS "program"
+#                      ON ("school"."code" = "program"."school_code")
+#      LEFT OUTER JOIN (SELECT COUNT(NULLIF(("department"."code" LIKE '%a%' ESCAPE '\'), 0)) AS "count",
+#                              "department"."school_code"
+#                       FROM "department"
+#                       GROUP BY 2) AS "department"
+#                      ON ("school"."code" = "department"."school_code")
+# WHERE (COALESCE("program"."count", 0) > 0)
+#       AND (COALESCE("department"."count", 0) > 0)
+# ORDER BY 1 ASC

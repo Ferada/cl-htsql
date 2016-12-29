@@ -42,4 +42,4 @@
    ;; conditions
    #:htsql-parse-error
    ;; functions
-   #:parse-htsql-query))
+   #:map-query))

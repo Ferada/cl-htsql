@@ -78,6 +78,7 @@
   @
   ("\\?" ?)
   ("\\." \.)
+  ("," \,)
   ("\\(" \()
   ("\\)" \))
   ("\\+" +)
@@ -92,7 +93,7 @@
               (values 'decimal $@))
              (T
               (values 'integer $@)))))
-  ("([^\"\\.\\?~\'=<>\\(\\)@\\|\\&/:])+" (return (values 'name $@)))
+  ("([^\"\\.,\\?~\'=<>\\(\\)@\\|\\&/:])+" (return (values 'name $@)))
   ("\'([^\\\']|\\.)*?\'" (return (values 'string (string-trim "\'" $@))))
   ("\"([^\\\"]|\\.)*?\"" (return (values 'string (string-trim "\"" $@)))))
 
@@ -100,7 +101,7 @@
 (define-parser *expression-parser*
   (:muffle-conflicts (5 5))
   (:start-symbol query)
-  (:terminals (|\|| & ! |.| ? / = != !== !~ ~ < > == <= >= \( \) + - * @ name integer decimal float string))
+  (:terminals (|\|| & ! |.| |,| |:| ? / = != !== !~ ~ < > == <= >= \( \) + - * @ name integer decimal float string))
 
   (query
    segment)
@@ -170,16 +171,34 @@
 
   (detach
    (@ detach (lambda (x y) (declare (ignore x)) `(:detach ,y)))
+   function-call)
+
+  (function-call
+   (identifier function-arguments (lambda (x y) `(:function ,x ,@y)))
    term)
+
+  (function-arguments
+   (\( f1 (lambda (x y) (declare (ignore x)) y)))
+
+  (f1
+   (\) (constantly NIL))
+   f2)
+
+  (f2
+   (segment \) (lambda (x y) (declare (ignore y)) (list x)))
+   (segment \, f2 (lambda (x y z) (declare (ignore y)) (list* x z))))
 
   (term
    mandatory-group
-   (name (lambda (x) `(:identifier ,x)))
+   identifier
    (string (lambda (x) `(:string ,x)))
    (number (lambda (x) `(:integer ,x)))
    (integer (lambda (x) `(:integer ,x)))
    (decimal (lambda (x) `(:decimal ,x)))
-   (float (lambda (x) `(:float ,x)))))
+   (float (lambda (x) `(:float ,x))))
+
+  (identifier
+   (name (lambda (x) `(:identifier ,x)))))
 
 (defun make-lexer-for-source (source)
   "Make a lexer for the SOURCE, either a STRING or a STREAM."
@@ -206,7 +225,7 @@
    :format-control "Couldn't parse HTSQL query: ~A."
    :format-arguments (list error)))
 
-(defun parse-htsql-query (source)
+(defun parse-query (source)
   "Parse SOURCE into a syntax tree.  The SOURCE may be either a STRING or
 a STREAM."
   (handler-case

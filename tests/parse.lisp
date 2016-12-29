@@ -32,10 +32,10 @@
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defmacro is-htsql-result (query result )
-    `(is (equal ',result (parse-htsql-query ,query)))))
+    `(is (equal ',result (cl-htsql::parse-query ,query)))))
 
 (def-test empty ()
-  (signals htsql-parse-error (parse-htsql-query "")))
+  (signals htsql-parse-error (cl-htsql::parse-query "")))
 
 (def-test skip ()
   (is-htsql-result "/" (:SKIP))
@@ -57,7 +57,7 @@
   (is-htsql-result "/program" (:COLLECT (:IDENTIFIER "program")))
   (is-htsql-result "/'school'" (:COLLECT (:STRING "school")))
   (is-htsql-result "/5" (:COLLECT (:INTEGER "5")))
-  (signals htsql-parse-error (parse-htsql-query "/1/"))
+  (signals htsql-parse-error (cl-htsql::parse-query "/1/"))
   (is-htsql-result "/1//" (:COLLECT (:OPERATOR / (:INTEGER "1") (:SKIP))))
   (is-htsql-result "/1/2" (:COLLECT (:OPERATOR / (:INTEGER "1") (:INTEGER "2"))))
   (is-htsql-result "/1//2" (:COLLECT (:OPERATOR / (:INTEGER "1") (:COLLECT (:INTEGER "2"))))))
@@ -96,8 +96,8 @@
   (is-htsql-result "1<=2" (:OPERATOR <= (:INTEGER "1") (:INTEGER "2")))
   (is-htsql-result "1>2" (:OPERATOR > (:INTEGER "1") (:INTEGER "2")))
   (is-htsql-result "1>=2" (:OPERATOR >= (:INTEGER "1") (:INTEGER "2")))
-  (signals htsql-parse-error (parse-htsql-query "1<2<3"))
-  (signals htsql-parse-error (parse-htsql-query "1=2=3"))
+  (signals htsql-parse-error (cl-htsql::parse-query "1<2<3"))
+  (signals htsql-parse-error (cl-htsql::parse-query "1=2=3"))
   (is-htsql-result "1</2" (:OPERATOR < (:INTEGER "1") (:COLLECT (:INTEGER "2")))))
 
 (def-test add/sub ()
@@ -116,17 +116,15 @@
   (is-htsql-result "/1/2/:csv" (:PIPE (:IDENTIFIER "csv") (:COLLECT (:OPERATOR / (:INTEGER "1") (:INTEGER "2"))))))
 
 (def-test detach ()
-  (signals htsql-parse-error (parse-htsql-query "@"))
+  (signals htsql-parse-error (cl-htsql::parse-query "@"))
   (is-htsql-result "@x" (:DETACH (:IDENTIFIER "x")))
   (is-htsql-result "@x.y" (:COMPOSE (:DETACH (:IDENTIFIER "x")) (:IDENTIFIER "y")))
   (is-htsql-result "@x.y.z" (:COMPOSE (:COMPOSE (:DETACH (:IDENTIFIER "x")) (:IDENTIFIER "y")) (:IDENTIFIER "z"))))
 
-#+(or)
-(def-test pipe ()
-  (is-htsql-result
-   "/hue/:csv(asdf, 42)"
-   (:PIPE
-    (:IDENTIFIER "csv")
-    (:COLLECT (:IDENTIFIER "hue"))
-    (:IDENTIFIER "asdf")
-    (:INTEGER "42"))))
+(def-test function-call ()
+  (is-htsql-result "random()" (:FUNCTION-CALL "random"))
+  (is-htsql-result "random(1)" (:FUNCTION-CALL "random" (:INTEGER "1")))
+  (is-htsql-result "random(1,2)" (:FUNCTION-CALL "random" (:INTEGER "1") (:INTEGER "2")))
+  (signals htsql-parse-error (cl-htsql::parse-query "random(,"))
+  (signals htsql-parse-error (cl-htsql::parse-query "random(1,"))
+  (signals htsql-parse-error (cl-htsql::parse-query "random(,2")))

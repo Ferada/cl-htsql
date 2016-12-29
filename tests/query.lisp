@@ -1,6 +1,6 @@
-;; -*- mode: lisp; syntax: common-lisp; coding: utf-8-unix; package: cl-user; -*-
+;; -*- mode: lisp; syntax: common-lisp; coding: utf-8-unix; package: cl-htsql-tests; -*-
 
-;; Copyright (c) 2015, Olof-Joachim Frahm
+;; Copyright (c) 2016, Olof-Joachim Frahm
 ;; All rights reserved.
 
 ;; Redistribution and use in source and binary forms, with or without
@@ -26,14 +26,24 @@
 ;; (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 ;; OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-(in-package #:cl-user)
+(in-package #:cl-htsql-tests)
 
-(asdf:defsystem #:cl-htsql-tests
-  :depends-on (#:cl-htsql #:fiveam)
-  :serial T
-  :components ((:module "tests"
-                :components
-                ((:file "package")
-                 (:file "suite")
-                 (:file "parse")
-                 (:file "query")))))
+(in-suite cl-htsql)
+
+(clsql:file-enable-sql-reader-syntax)
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defmacro is-sql-query (schema query result)
+    `(is (equal ',result (clsql-sys::sql-output (cl-htsql::transform-query ,schema (cl-htsql::parse-query ,query)))))))
+
+(def-test skip-sql ()
+  (let ((schema (make-instance 'cl-htsql::database-schema)))
+    (is-sql-query schema "/" "NULL")))
+
+(def-test entity-sql ()
+  (let ((schema (make-instance 'cl-htsql::database-schema)))
+    (is-sql-query schema "/foo" "SELECT \"foo\".* FROM \"foo\"")))
+
+(def-test function-call-sql ()
+  (let ((schema (make-instance 'cl-htsql::database-schema)))
+    (is-sql-query schema "/foo?is_null(x)" "SELECT \"foo\".* FROM \"foo\" WHERE (\"foo\".\"x\" IS NULL)")))
