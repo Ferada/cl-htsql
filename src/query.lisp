@@ -112,7 +112,7 @@
          (ecase (car (caddr clause))
            ((:identifier :string)
             (clsql:sql-expression :table table :attribute (cadr (caddr clause))))
-           (:operator
+           ((:operator :function)
             (car (transform-operator table (caddr clause)))))
          (ecase (car (cadddr clause))
            ((:identifier :integer :string)
@@ -120,7 +120,7 @@
               (~ (format NIL "%~A%" (cadr (cadddr clause))))
               ;; TODO: e.g. PARSE-INTEGER
               ((= |\|| & < > <= >=) (cadr (cadddr clause)))))
-           (:operator
+           ((:operator :function)
             (car (transform-operator table (cadddr clause)))))))))
     (:function
      (let ((function (cadr clause)))
@@ -155,15 +155,19 @@
                                        (path (find-table-path schema name1 name2 (list NIL))))
                                   (unless path
                                     (error "Couldn't find path between ~A and ~A." name1 name2))
-                                  (mapcar (lambda (join &aux (cdr (cdr join)))
+                                  (mapcan (lambda (join &aux (cdr (cdr join)))
                                             (record-path (car cdr))
                                             (record-path (cadr cdr))
-                                            (clsql:sql-operation
-                                             '=
-                                             (clsql:sql-expression :table (car cdr)
-                                                                   :attribute (car (caddr cdr)))
-                                             (clsql:sql-expression :table (cadr (cdr join))
-                                                                   :attribute (car (cadddr cdr)))))
+                                            (mapcar
+                                             (lambda (attribute1 attribute2)
+                                               (clsql:sql-operation
+                                                '=
+                                                (clsql:sql-expression :table (car cdr)
+                                                                      :attribute attribute1)
+                                                (clsql:sql-expression :table (cadr (cdr join))
+                                                                      :attribute attribute2)))
+                                             (caddr cdr)
+                                             (cadddr cdr)))
                                           path)))
                               tables (cdr tables))
                       (mapcan (lambda (filter)
@@ -178,7 +182,8 @@
          :from (mapcar (lambda (table)
                          (clsql:sql-expression :table table))
                        (nreverse path-tables))
-         :where where)))))
+         :where where
+         NIL)))))
 
 ;; TODO: how to do indirection on the kind of database used?
 ;; TODO: limit/offset needs to get direct syntax

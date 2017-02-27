@@ -93,13 +93,13 @@
               (values 'decimal $@))
              (T
               (values 'integer $@)))))
-  ("([^\"\\.,\\?~\'=<>\\(\\)@\\|\\&/:])+" (return (values 'name $@)))
+  ("([^\"\\.,\\?~\'=<>\\(\\)@\\|\\&/:+-])+" (return (values 'name $@)))
   ("\'([^\\\']|\\.)*?\'" (return (values 'string (string-trim "\'" $@))))
   ("\"([^\\\"]|\\.)*?\"" (return (values 'string (string-trim "\"" $@)))))
 
 ;; parser are results are to be treated immutable
 (define-parser *expression-parser*
-  (:muffle-conflicts (5 5))
+  (:muffle-conflicts (5 6))
   (:start-symbol query)
   (:terminals (|\|| & ! |.| |,| |:| ? / = != !== !~ ~ < > == <= >= \( \) + - * @ name integer decimal float string))
 

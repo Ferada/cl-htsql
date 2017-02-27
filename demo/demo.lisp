@@ -42,6 +42,7 @@
                                               (slot-value schema 'cl-htsql::tables))
                                :edges (mapcar (lambda (edge)
                                                 (destructuring-bind (name table1 table2 key1 key2) edge
+                                                  (declare (ignore name key1 key2))
                                                   (make-instance 'cl-dot::edge :target (gethash table1 table) :source (gethash table2 table) :attributes (list :color "green" :fontcolor "green"))))
                                               (slot-value schema 'cl-htsql::foreign-keys)))))
     (cl-dot:dot-graph graph "htsql_demo.png" :format :png :directed NIL)))
@@ -74,7 +75,10 @@
                 ((or (string= query "/") (not query))
                  (htm
                   (:h2 "EXAMPLES")
-                  (:a :href "/(school?name~Bus).appointment" "/(school?name~Bus).appointment")
+                  (:ol
+                   (dolist (query '("/(school?name~Bus).appointment"
+                                    "/semester.course"))
+                     (htm (:li (:a :href (str query) (str query))))))
                   (:h2 "TABLES")
                   (:ul
                    (dolist (table (slot-value schema 'cl-htsql::tables))
@@ -89,9 +93,9 @@
                   (:h2 "RESULTS")
                   (:p (:a :href query (str query)))
                   (handler-case
-                      (let* ((parsed (cl-htsql::parse-htsql-query query))
+                      (let* ((parsed (cl-htsql::parse-query query))
                              (simplified (cl-htsql::simplify-query parsed))
-                             (transformed (cl-htsql::transform-htsql-query schema simplified)))
+                             (transformed (cl-htsql::transform-query schema simplified)))
                         (htm
                          (:h3 "PARSED")
                          (:pre (esc (with-output-to-string (stream) (pprint parsed stream))))

@@ -47,3 +47,7 @@
 (def-test function-call-sql ()
   (let ((schema (make-instance 'cl-htsql::database-schema)))
     (is-sql-query schema "/foo?is_null(x)" "SELECT \"foo\".* FROM \"foo\" WHERE (\"foo\".\"x\" IS NULL)")))
+
+(def-test multiple-attributes-sql ()
+  (let ((schema (make-instance 'cl-htsql::database-schema :foreign-keys '((NIL "foo" "bar" ("x" "y") ("x" "y"))))))
+    (is-sql-query schema "/foo.bar" "SELECT \"bar\".* FROM \"foo\",\"bar\" WHERE ((\"foo\".\"x\" = \"bar\".\"x\") AND (\"foo\".\"y\" = \"bar\".\"y\"))")))

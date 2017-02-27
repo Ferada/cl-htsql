@@ -34,6 +34,7 @@ def n(expression):
     return keyword(l(name))
 
 
+# for SQL, try /my.query/:sql
 def t(expression):
     arguments = [n(expression)]
     d = expression.__dict__

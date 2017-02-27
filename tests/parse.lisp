@@ -122,9 +122,9 @@
   (is-htsql-result "@x.y.z" (:COMPOSE (:COMPOSE (:DETACH (:IDENTIFIER "x")) (:IDENTIFIER "y")) (:IDENTIFIER "z"))))
 
 (def-test function-call ()
-  (is-htsql-result "random()" (:FUNCTION-CALL "random"))
-  (is-htsql-result "random(1)" (:FUNCTION-CALL "random" (:INTEGER "1")))
-  (is-htsql-result "random(1,2)" (:FUNCTION-CALL "random" (:INTEGER "1") (:INTEGER "2")))
+  (is-htsql-result "random()" (:FUNCTION (:IDENTIFIER "random")))
+  (is-htsql-result "random(1)" (:FUNCTION (:IDENTIFIER "random") (:INTEGER "1")))
+  (is-htsql-result "random(1,2)" (:FUNCTION (:IDENTIFIER "random") (:INTEGER "1") (:INTEGER "2")))
   (signals htsql-parse-error (cl-htsql::parse-query "random(,"))
   (signals htsql-parse-error (cl-htsql::parse-query "random(1,"))
   (signals htsql-parse-error (cl-htsql::parse-query "random(,2")))
