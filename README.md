@@ -25,9 +25,9 @@ features may be missing.
 
 # USAGE
 
-Use `PARSE-HTSQL-QUERY` to get back a raw syntax tree:
+Use `PARSE-QUERY` to get back a raw syntax tree:
 
-    > (parse-htsql-query "/x.y.z")
+    > (parse-query "/x.y.z")
     => (:COLLECT
         (:COMPOSE
          (:COMPOSE
@@ -47,7 +47,7 @@ on `PATHNAME` arguments.)
 Print query output:
 
     > (clsql:print-query
-       (transform-htsql-query
+       (transform-query
         (fetch-schema clsql:*default-database*)
-        (parse-htsql-query "/department?code='astro'")))
+        (parse-query "/department?code='astro'")))
     => astro Astronomy ns
