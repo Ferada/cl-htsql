@@ -77,8 +77,9 @@
                   (:h2 "EXAMPLES")
                   (:ol
                    (dolist (query '("/(school?name~Bus).appointment"
-                                    "/semester.course"))
-                     (htm (:li (:a :href (str query) (str query))))))
+                                    "/semester.course"
+                                    "/class?course_no>=300&course_no<=500"))
+                     (htm (:li (:a :href (esc query) (esc query))))))
                   (:h2 "TABLES")
                   (:ul
                    (dolist (table (slot-value schema 'cl-htsql::tables))
@@ -91,7 +92,7 @@
                 (T
                  (htm
                   (:h2 "RESULTS")
-                  (:p (:a :href query (str query)))
+                  (:p (:a :href query (esc query)))
                   (handler-case
                       (let* ((parsed (cl-htsql::parse-query query))
                              (simplified (cl-htsql::simplify-query parsed))
